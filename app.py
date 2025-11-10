@@ -5,7 +5,7 @@ import os, uuid
 
 # ---------- CONFIG ----------
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "slipknot66"  # senha fornecida
+ADMIN_PASSWORD = "slipknot66"
 SECRET_KEY = os.environ.get("FLASK_SECRET", "troque_esse_secret_em_producao")
 DB_PATH = os.path.join(os.path.dirname(__file__), "licenses.db")
 # ----------------------------
@@ -17,6 +17,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# ----------------- MODELO -----------------
 class License(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(64), unique=True, nullable=False)
@@ -40,12 +41,12 @@ class License(db.Model):
 def init_db():
     db.create_all()
 
-# ----------------- Public pages -----------------
+# ----------------- PÁGINAS -----------------
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ----------------- Admin auth -----------------
+# ----------------- LOGIN -----------------
 def is_logged_in():
     return session.get("admin_logged", False)
 
@@ -67,7 +68,7 @@ def logout():
     session.pop("admin_logged", None)
     return redirect(url_for("login"))
 
-# ----------------- Dashboard & admin -----------------
+# ----------------- DASHBOARD -----------------
 @app.route("/dashboard")
 def dashboard():
     if not is_logged_in():
@@ -117,24 +118,34 @@ def delete_license(lic_id):
     return redirect(url_for("dashboard"))
 
 # ----------------- API -----------------
-@app.route("/api/validate", methods=["GET", "POST"])
-def api_validate():
-    data = request.get_json(silent=True) or {}
-    key = data.get("key") or request.args.get("key")
-    if not key:
-        return jsonify({"ok": False, "error": "missing_key"}), 400
+@app.route("/api/validate", methods=["POST"])
+def validate():
+    """Valida uma licença — compatível com o sistema cliente"""
+    data = request.get_json() or {}
+    key = data.get("key", "").strip()
+
     lic = License.query.filter_by(key=key).first()
     if not lic:
         return jsonify({"ok": False, "error": "license_not_found"}), 404
     if not lic.active:
-        return jsonify({"ok": False, "error": "license_blocked", "license": lic.to_dict()}), 403
+        return jsonify({"ok": False, "error": "license_blocked"}), 403
     if lic.expires_at and datetime.utcnow() > lic.expires_at:
-        return jsonify({"ok": False, "error": "license_expired", "license": lic.to_dict()}), 403
-    return jsonify({"ok": True, "license": lic.to_dict()})
+        return jsonify({"ok": False, "error": "license_expired"}), 403
+
+    return jsonify({
+        "ok": True,
+        "license": {
+            "key": lic.key,
+            "status": "active",
+            "owner": lic.owner,
+            "expires": lic.expires_at.isoformat() if lic.expires_at else None
+        }
+    })
 
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "time": datetime.utcnow().isoformat()})
 
+# ----------------- MAIN -----------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
