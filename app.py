@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import os, uuid
@@ -37,9 +37,18 @@ class License(db.Model):
             "notes": self.notes
         }
 
-@app.before_request
+@app.before_first_request
 def init_db():
     db.create_all()
+
+# ----------------- HELPERS -----------------
+def json_response(data, status=200):
+    """Retorna jsonify com header CORS para facilitar testes."""
+    resp = make_response(jsonify(data), status)
+    resp.headers['Access-Control-Allow-Origin'] = '*'  # ajustar em produção se quiser restringir
+    resp.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return resp
 
 # ----------------- PÁGINAS -----------------
 @app.route("/")
@@ -118,21 +127,32 @@ def delete_license(lic_id):
     return redirect(url_for("dashboard"))
 
 # ----------------- API -----------------
-@app.route("/api/validate", methods=["POST"])
-def validate():
-    """Valida uma licença — compatível com o sistema cliente"""
-    data = request.get_json() or {}
-    key = data.get("key", "").strip()
+@app.route("/api/validate", methods=["GET", "POST", "OPTIONS"])
+def api_validate():
+    # Permitir pré-flight
+    if request.method == "OPTIONS":
+        return json_response({"ok": True, "msg": "options"}, status=200)
+
+    # aceitar tanto JSON via POST quanto ?key=... via GET
+    data = {}
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+    key = (data.get("key") if isinstance(data, dict) else None) or request.args.get("key", "")
+    key = (key or "").strip()
+
+    if not key:
+        return json_response({"ok": False, "error": "missing_key"}, status=400)
 
     lic = License.query.filter_by(key=key).first()
     if not lic:
-        return jsonify({"ok": False, "error": "license_not_found"}), 404
+        return json_response({"ok": False, "error": "license_not_found"}, status=404)
     if not lic.active:
-        return jsonify({"ok": False, "error": "license_blocked"}), 403
+        return json_response({"ok": False, "error": "license_blocked", "license": lic.to_dict()}, status=403)
     if lic.expires_at and datetime.utcnow() > lic.expires_at:
-        return jsonify({"ok": False, "error": "license_expired"}), 403
+        return json_response({"ok": False, "error": "license_expired", "license": lic.to_dict()}, status=403)
 
-    return jsonify({
+    # resposta no formato que o cliente espera
+    return json_response({
         "ok": True,
         "license": {
             "key": lic.key,
@@ -140,12 +160,13 @@ def validate():
             "owner": lic.owner,
             "expires": lic.expires_at.isoformat() if lic.expires_at else None
         }
-    })
+    }, status=200)
 
 @app.route("/health")
 def health():
-    return jsonify({"ok": True, "time": datetime.utcnow().isoformat()})
+    return json_response({"ok": True, "time": datetime.utcnow().isoformat()})
 
 # ----------------- MAIN -----------------
 if __name__ == "__main__":
+    # usar PORT do ambiente (Render) ou 5000 local
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
