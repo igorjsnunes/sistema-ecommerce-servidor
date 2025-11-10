@@ -17,7 +17,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# ----------------- MODELO -----------------
 class License(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(64), unique=True, nullable=False)
@@ -26,7 +25,6 @@ class License(db.Model):
     expires_at = db.Column(db.DateTime, nullable=True)
     active = db.Column(db.Boolean, default=True)
     notes = db.Column(db.String(255), nullable=True)
-
     def to_dict(self):
         return {
             "key": self.key,
@@ -41,21 +39,17 @@ class License(db.Model):
 def init_db():
     db.create_all()
 
-# ----------------- HELPERS -----------------
 def json_response(data, status=200):
-    """Retorna jsonify com header CORS para facilitar testes."""
     resp = make_response(jsonify(data), status)
-    resp.headers['Access-Control-Allow-Origin'] = '*'  # ajustar em produção se quiser restringir
+    resp.headers['Access-Control-Allow-Origin'] = '*'
     resp.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
     resp.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     return resp
 
-# ----------------- PÁGINAS -----------------
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ----------------- LOGIN -----------------
 def is_logged_in():
     return session.get("admin_logged", False)
 
@@ -77,7 +71,6 @@ def logout():
     session.pop("admin_logged", None)
     return redirect(url_for("login"))
 
-# ----------------- DASHBOARD -----------------
 @app.route("/dashboard")
 def dashboard():
     if not is_logged_in():
@@ -126,23 +119,17 @@ def delete_license(lic_id):
     flash("Licença removida.", "info")
     return redirect(url_for("dashboard"))
 
-# ----------------- API -----------------
 @app.route("/api/validate", methods=["GET", "POST", "OPTIONS"])
 def api_validate():
-    # Permitir pré-flight
     if request.method == "OPTIONS":
         return json_response({"ok": True, "msg": "options"}, status=200)
-
-    # aceitar tanto JSON via POST quanto ?key=... via GET
     data = {}
     if request.method == "POST":
         data = request.get_json(silent=True) or {}
     key = (data.get("key") if isinstance(data, dict) else None) or request.args.get("key", "")
     key = (key or "").strip()
-
     if not key:
         return json_response({"ok": False, "error": "missing_key"}, status=400)
-
     lic = License.query.filter_by(key=key).first()
     if not lic:
         return json_response({"ok": False, "error": "license_not_found"}, status=404)
@@ -150,8 +137,6 @@ def api_validate():
         return json_response({"ok": False, "error": "license_blocked", "license": lic.to_dict()}, status=403)
     if lic.expires_at and datetime.utcnow() > lic.expires_at:
         return json_response({"ok": False, "error": "license_expired", "license": lic.to_dict()}, status=403)
-
-    # resposta no formato que o cliente espera
     return json_response({
         "ok": True,
         "license": {
@@ -166,7 +151,5 @@ def api_validate():
 def health():
     return json_response({"ok": True, "time": datetime.utcnow().isoformat()})
 
-# ----------------- MAIN -----------------
 if __name__ == "__main__":
-    # usar PORT do ambiente (Render) ou 5000 local
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
