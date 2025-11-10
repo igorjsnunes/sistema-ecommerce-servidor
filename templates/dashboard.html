@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - Licenças</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  </head>
+  <body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/">Painel Admin</a>
+        <div class="ms-auto">
+          <a href="/logout" class="btn btn-sm btn-outline-light">Sair</a>
+        </div>
+      </div>
+    </nav>
+    <div class="container py-4">
+      <div class="row">
+        <div class="col-md-10 mx-auto">
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5>Criar nova licença</h5>
+              <form method="post" action="/create" class="row g-2">
+                <div class="col-md-5">
+                  <input name="owner" placeholder="Nome do cliente / email" class="form-control">
+                </div>
+                <div class="col-md-2">
+                  <input name="days" placeholder="Dias (vazio = vitalícia)" class="form-control">
+                </div>
+                <div class="col-md-3">
+                  <input name="notes" placeholder="Notas" class="form-control">
+                </div>
+                <div class="col-md-2">
+                  <button class="btn btn-success w-100">Gerar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h5>Licenças</h5>
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>#</th><th>Key</th><th>Owner</th><th>Expires</th><th>Active</th><th>Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for lic in licenses %}
+                    <tr>
+                      <td>{{lic.id}}</td>
+                      <td><code>{{lic.key}}</code></td>
+                      <td>{{lic.owner or ''}}</td>
+                      <td>{% if lic.expires_at %}{{lic.expires_at.strftime('%Y-%m-%d %H:%M')}}{% else %}Vitalícia{% endif %}</td>
+                      <td>{{ 'Sim' if lic.active else 'Não' }}</td>
+                      <td>
+                        <a href="/toggle/{{lic.id}}" class="btn btn-sm btn-warning">Toggle</a>
+                        <a href="/delete/{{lic.id}}" class="btn btn-sm btn-danger">Excluir</a>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
