@@ -1,4 +1,4 @@
-import os
+
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
@@ -93,7 +93,18 @@ def now_utc():
 
 
 def normalize_key(value):
-    return (value or "").strip().upper().replace(" ", "").replace("-", "")
+    """Normaliza a chave para o mesmo formato usado no banco.
+
+    Aceita a chave com ou sem hífens e sempre devolve o formato
+    XXXX-XXXX-XXXX-XXXX. Isso evita que uma chave válida seja
+    considerada inexistente por causa da formatação.
+    """
+    raw = (value or "").strip().upper().replace(" ", "").replace("-", "")
+
+    if len(raw) == 16:
+        return "-".join(raw[i:i + 4] for i in range(0, 16, 4))
+
+    return raw
 
 
 def generate_license_key():
