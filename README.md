@@ -1,19 +1,79 @@
-SISTEMA-E-COMMERCE - Servidor de Licenças (Render-ready)
+# Sistema E-commerce — Servidor de Licenças 2.0
 
-1) Como testar localmente
-   python -m venv venv
-   source venv/bin/activate  # (Linux/Mac) ou venv\Scripts\activate (Windows)
-   pip install -r requirements.txt
-   export FLASK_SECRET="uma_chave_segura"
-   python app.py
-   Acesse: http://localhost:5000/login
-   usuário: admin
-   senha: slipknot66
+Servidor Flask para ativação e validação das licenças do Sistema E-commerce.
 
-2) Deploy no Render
-   - Crie conta em https://render.com
-   - Crie um novo Web Service -> Connect a repo (ou drag & drop)
-   - Se usar GitHub, conecte e selecione o repo com estes arquivos
-   - Render detecta Python e roda o startCommand do render.yaml
-   - Após deploy, terá HTTPS automático e um domínio como:
-     https://sistema-ecommerce.onrender.com
+## Recursos
+
+- PostgreSQL em produção
+- Login administrativo por variáveis de ambiente
+- Criação de licenças
+- Validade em dias ou vitalícia
+- Bloqueio/desbloqueio
+- Vinculação da licença ao primeiro computador
+- Reset do computador pelo painel
+- Ativação pelo EXE: `POST /api/activate`
+- Validação pelo EXE: `POST /api/validate`
+- Desativação: `POST /api/deactivate`
+- Health check: `GET /health`
+
+## Rodar localmente
+
+Windows PowerShell:
+
+```powershell
+python -m venv venv
+.env\Scripts\Activate.ps1
+pip install -r requirements.txt
+$env:FLASK_SECRET="uma-chave-local"
+$env:ADMIN_USERNAME="admin"
+$env:ADMIN_PASSWORD="sua-senha-local"
+python app.py
+```
+
+Acesse `http://127.0.0.1:5000/login`.
+
+Sem `DATABASE_URL`, o projeto usa `licenses.db` apenas para desenvolvimento local.
+
+## Render
+
+O `render.yaml` cria:
+
+- Web Service Python
+- PostgreSQL
+- `DATABASE_URL` ligado automaticamente ao banco
+- `FLASK_SECRET` gerado pelo Render
+
+Depois do deploy, configure no Render:
+
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD`
+
+Não coloque a senha administrativa no código.
+
+## API
+
+Ativação:
+
+```json
+POST /api/activate
+{
+  "key": "JXCM-XXXX-XXXX-XXXX",
+  "machine_id": "ID_DO_COMPUTADOR"
+}
+```
+
+Validação:
+
+```json
+POST /api/validate
+{
+  "key": "JXCM-XXXX-XXXX-XXXX",
+  "machine_id": "ID_DO_COMPUTADOR"
+}
+```
+
+O servidor aceita uma ativação por licença. Para trocar de computador, o administrador deve usar **Resetar computador** no painel ou o EXE deve desativar a licença antes de ser removido.
+
+## Migração do banco antigo
+
+O `licenses.db` antigo deve ser mantido como backup. Não sobrescreva nem apague o arquivo até validarmos a nova instalação. A migração das licenças antigas será feita separadamente após o primeiro deploy do PostgreSQL.
