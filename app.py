@@ -9,7 +9,7 @@ from flask import (
     session, jsonify, flash
 )
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text
+from sqlalchemy import inspect, text, UniqueConstraint
 
 
 # ============================================================
@@ -28,7 +28,6 @@ if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
 
 if not DATABASE_URL:
-    # Desenvolvimento local. No Render, DATABASE_URL deve vir do PostgreSQL.
     DATABASE_URL = "sqlite:///licenses.db"
 
 app = Flask(__name__)
@@ -44,12 +43,11 @@ db = SQLAlchemy(app)
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 if not ADMIN_PASSWORD:
-    # Local: permite iniciar sem configurar senha; produção deve usar variável.
     ADMIN_PASSWORD = "troque-esta-senha"
 
 
 # ============================================================
-# MODELO
+# MODELOS
 # ============================================================
 
 class License(db.Model):
@@ -59,29 +57,100 @@ class License(db.Model):
     key = db.Column(db.String(64), unique=True, nullable=False, index=True)
     owner = db.Column(db.String(160), nullable=True)
     email = db.Column(db.String(160), nullable=True)
-    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
     expires_at = db.Column(db.DateTime(timezone=True), nullable=True)
     active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # Mantido para compatibilidade com o banco antigo.
+    # A nova lógica usa LicenseMachine.
     machine_id = db.Column(db.String(128), nullable=True, index=True)
     activated_at = db.Column(db.DateTime(timezone=True), nullable=True)
     last_check_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
     notes = db.Column(db.String(500), nullable=True)
 
+    # NOVO: quantidade máxima de computadores permitidos.
+    max_machines = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+
+    machines = db.relationship(
+        "LicenseMachine",
+        back_populates="license",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
     def is_expired(self):
-        return bool(self.expires_at and datetime.now(timezone.utc) > self.expires_at)
+        return bool(
+            self.expires_at and
+            datetime.now(timezone.utc) > self.expires_at
+        )
+
+    @property
+    def machine_count(self):
+        return len(self.machines)
+
+    @property
+    def machine_limit(self):
+        try:
+            return max(1, int(self.max_machines or 1))
+        except Exception:
+            return 1
+
+    @property
+    def available_slots(self):
+        return max(0, self.machine_limit - self.machine_count)
 
     def to_dict(self):
         return {
             "key": self.key,
             "owner": self.owner,
             "email": self.email,
-            "status": "active" if self.active and not self.is_expired() else (
-                "expired" if self.is_expired() else "blocked"
+            "status": (
+                "active"
+                if self.active and not self.is_expired()
+                else ("expired" if self.is_expired() else "blocked")
             ),
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "machine_bound": bool(self.machine_id),
+            "machine_count": self.machine_count,
+            "max_machines": self.machine_limit,
+            "available_slots": self.available_slots,
         }
+
+
+class LicenseMachine(db.Model):
+    __tablename__ = "license_machines"
+    __table_args__ = (
+        UniqueConstraint(
+            "license_id",
+            "machine_id",
+            name="uq_license_machine"
+        ),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    license_id = db.Column(
+        db.Integer,
+        db.ForeignKey("licenses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    machine_id = db.Column(db.String(128), nullable=False, index=True)
+    machine_name = db.Column(db.String(160), nullable=True)
+    activated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+    last_check_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+    license = db.relationship("License", back_populates="machines")
 
 
 # ============================================================
@@ -93,25 +162,17 @@ def now_utc():
 
 
 def normalize_key(value):
-    """Normaliza a chave para o mesmo formato usado no banco.
-
-    Aceita a chave com/sem hífens e com espaços e devolve o formato
-    canônico XXXX-XXXX-XXXX-XXXX. Isso evita o erro em que o servidor
-    removia os hífens da chave recebida, mas a chave no banco continuava
-    com hífens, fazendo a licença parecer inexistente.
-    """
-    raw = str(value or "").strip().upper()
-    raw = "".join(ch for ch in raw if ch.isalnum())
-
-    if len(raw) == 16:
-        return "-".join(raw[i:i + 4] for i in range(0, 16, 4))
-
-    return raw
+    return (
+        (value or "")
+        .strip()
+        .upper()
+        .replace(" ", "")
+        .replace("-", "")
+    )
 
 
 def generate_license_key():
     alphabet = string.ascii_uppercase + string.digits
-    # Ex.: JXCM-7F4K-9P2D-8L6Q
     raw = "".join(secrets.choice(alphabet) for _ in range(16))
     return "-".join(raw[i:i + 4] for i in range(0, 16, 4))
 
@@ -140,11 +201,68 @@ def admin_required(view):
 
 
 # ============================================================
-# BANCO
+# MIGRAÇÃO / BANCO
 # ============================================================
 
-with app.app_context():
+def ensure_database_schema():
+    """
+    Cria tabelas novas e adiciona max_machines ao banco antigo.
+    Também migra a antiga machine_id para license_machines.
+    """
     db.create_all()
+
+    inspector = inspect(db.engine)
+    columns = {c["name"] for c in inspector.get_columns("licenses")}
+
+    if "max_machines" not in columns:
+        with db.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE licenses "
+                    "ADD COLUMN max_machines INTEGER NOT NULL DEFAULT 1"
+                )
+            )
+
+    # Garante que licenças antigas tenham limite válido.
+    with db.engine.begin() as conn:
+        conn.execute(
+            text(
+                "UPDATE licenses "
+                "SET max_machines = 1 "
+                "WHERE max_machines IS NULL OR max_machines < 1"
+            )
+        )
+
+    # Migra uma eventual máquina antiga para a tabela nova.
+    # Fazemos isso usando SQL simples para funcionar tanto em SQLite quanto PostgreSQL.
+    licenses = License.query.all()
+    migrated = False
+
+    for lic in licenses:
+        if lic.machine_id:
+            exists = LicenseMachine.query.filter_by(
+                license_id=lic.id,
+                machine_id=lic.machine_id
+            ).first()
+
+            if not exists:
+                db.session.add(
+                    LicenseMachine(
+                        license_id=lic.id,
+                        machine_id=lic.machine_id,
+                        machine_name="Computador existente",
+                        activated_at=lic.activated_at or now_utc(),
+                        last_check_at=lic.last_check_at,
+                    )
+                )
+                migrated = True
+
+    if migrated:
+        db.session.commit()
+
+
+with app.app_context():
+    ensure_database_schema()
 
 
 # ============================================================
@@ -161,11 +279,17 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if secrets.compare_digest(username, ADMIN_USERNAME) and secrets.compare_digest(password, ADMIN_PASSWORD):
+
+        if (
+            secrets.compare_digest(username, ADMIN_USERNAME)
+            and secrets.compare_digest(password, ADMIN_PASSWORD)
+        ):
             session.clear()
             session["admin_logged"] = True
             return redirect(url_for("dashboard"))
+
         flash("Usuário ou senha inválidos.", "danger")
+
     return render_template("login.html")
 
 
@@ -189,8 +313,18 @@ def create_license():
     email = request.form.get("email", "").strip()
     days_raw = request.form.get("days", "").strip()
     notes = request.form.get("notes", "").strip()
+    max_machines_raw = request.form.get("max_machines", "1").strip()
+
+    try:
+        max_machines = int(max_machines_raw or "1")
+        if max_machines <= 0:
+            raise ValueError
+    except ValueError:
+        flash("Quantidade de computadores inválida.", "danger")
+        return redirect(url_for("dashboard"))
 
     expires_at = None
+
     if days_raw:
         try:
             days = int(days_raw)
@@ -208,10 +342,46 @@ def create_license():
         expires_at=expires_at,
         active=True,
         notes=notes or None,
+        max_machines=max_machines,
     )
+
     db.session.add(license_obj)
     db.session.commit()
-    flash(f"Licença criada: {license_obj.key}", "success")
+
+    flash(
+        f"Licença criada: {license_obj.key} "
+        f"({license_obj.max_machines} computador(es))",
+        "success"
+    )
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/update-limit/<int:lic_id>", methods=["POST"])
+@admin_required
+def update_limit(lic_id):
+    lic = db.get_or_404(License, lic_id)
+    raw = request.form.get("max_machines", "").strip()
+
+    try:
+        new_limit = int(raw)
+        if new_limit <= 0:
+            raise ValueError
+    except ValueError:
+        flash("Limite de computadores inválido.", "danger")
+        return redirect(url_for("dashboard"))
+
+    if new_limit < lic.machine_count:
+        flash(
+            f"Não é possível definir {new_limit} computador(es): "
+            f"a licença já possui {lic.machine_count} computador(es) vinculado(s).",
+            "danger"
+        )
+        return redirect(url_for("dashboard"))
+
+    lic.max_machines = new_limit
+    db.session.commit()
+
+    flash("Limite de computadores atualizado.", "success")
     return redirect(url_for("dashboard"))
 
 
@@ -221,19 +391,92 @@ def toggle_license(lic_id):
     lic = db.get_or_404(License, lic_id)
     lic.active = not lic.active
     db.session.commit()
-    flash("Licença atualizada.", "success")
+
+    flash(
+        "Licença ativada." if lic.active else "Licença bloqueada.",
+        "success"
+    )
     return redirect(url_for("dashboard"))
 
 
+@app.route(
+    "/reset-machine/<int:lic_id>/<int:machine_row_id>",
+    methods=["POST"]
+)
+@admin_required
+def reset_machine(lic_id, machine_row_id):
+    lic = db.get_or_404(License, lic_id)
+    machine = db.get_or_404(LicenseMachine, machine_row_id)
+
+    if machine.license_id != lic.id:
+        flash("Computador inválido para esta licença.", "danger")
+        return redirect(url_for("dashboard"))
+
+    db.session.delete(machine)
+    db.session.commit()
+
+    flash(
+        "Computador removido da licença. Uma nova ativação poderá usar essa vaga.",
+        "success"
+    )
+    return redirect(url_for("dashboard"))
+
+
+# Compatibilidade com o botão antigo /reset-machine/<lic_id>.
+# Agora ele remove todos os computadores da licença.
 @app.route("/reset-machine/<int:lic_id>", methods=["POST"])
 @admin_required
-def reset_machine(lic_id):
+def reset_all_machines(lic_id):
     lic = db.get_or_404(License, lic_id)
+
+    for machine in list(lic.machines):
+        db.session.delete(machine)
+
+    # Limpa também o campo antigo.
     lic.machine_id = None
     lic.activated_at = None
     lic.last_check_at = None
+
     db.session.commit()
-    flash("Computador desvinculado. A próxima ativação poderá vincular um novo computador.", "success")
+
+    flash(
+        "Todos os computadores foram desvinculados da licença.",
+        "success"
+    )
+    return redirect(url_for("dashboard"))
+
+
+@app.route("/renew/<int:lic_id>", methods=["POST"])
+@admin_required
+def renew_license(lic_id):
+    lic = db.get_or_404(License, lic_id)
+    raw_days = request.form.get("days", "").strip()
+
+    try:
+        days = int(raw_days)
+        if days <= 0:
+            raise ValueError
+    except ValueError:
+        flash("Quantidade de dias para renovação inválida.", "danger")
+        return redirect(url_for("dashboard"))
+
+    now = now_utc()
+
+    # Se ainda está válida, acrescenta os dias ao vencimento atual.
+    # Se já venceu, começa a contar a partir de agora.
+    if lic.expires_at and lic.expires_at > now:
+        lic.expires_at = lic.expires_at + timedelta(days=days)
+    else:
+        lic.expires_at = now + timedelta(days=days)
+
+    lic.active = True
+    db.session.commit()
+
+    flash(
+        f"Licença renovada por {days} dia(s). "
+        f"A chave {lic.key} foi mantida.",
+        "success"
+    )
     return redirect(url_for("dashboard"))
 
 
@@ -243,6 +486,7 @@ def delete_license(lic_id):
     lic = db.get_or_404(License, lic_id)
     db.session.delete(lic)
     db.session.commit()
+
     flash("Licença removida.", "info")
     return redirect(url_for("dashboard"))
 
@@ -251,11 +495,35 @@ def delete_license(lic_id):
 # API PARA O EXE
 # ============================================================
 
+def get_machine_name(data):
+    name = (data.get("machine_name") or "").strip()
+    return name[:160] if name else "Computador"
+
+
+def find_machine(lic, machine_id):
+    return LicenseMachine.query.filter_by(
+        license_id=lic.id,
+        machine_id=machine_id
+    ).first()
+
+
+def license_payload(lic):
+    return {
+        "key": lic.key,
+        "owner": lic.owner,
+        "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
+        "machine_count": lic.machine_count,
+        "max_machines": lic.machine_limit,
+        "available_slots": lic.available_slots,
+    }
+
+
 @app.route("/api/activate", methods=["POST"])
 def api_activate():
     data = request.get_json(silent=True) or {}
     key = normalize_key(data.get("key"))
     machine_id = (data.get("machine_id") or "").strip()
+    machine_name = get_machine_name(data)
 
     if not key or not machine_id:
         return json_result({
@@ -264,42 +532,79 @@ def api_activate():
         }, 400)
 
     lic = License.query.filter_by(key=key).first()
+
     if not lic:
-        return json_result({"ok": False, "error": "license_not_found"}, 404)
+        return json_result({
+            "ok": False,
+            "error": "license_not_found"
+        }, 404)
 
     if not lic.active:
-        return json_result({"ok": False, "error": "license_blocked"}, 403)
+        return json_result({
+            "ok": False,
+            "error": "license_blocked"
+        }, 403)
 
     if lic.is_expired():
         return json_result({
             "ok": False,
             "error": "license_expired",
-            "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
+            "expires_at": (
+                lic.expires_at.isoformat()
+                if lic.expires_at else None
+            ),
         }, 403)
 
-    # Primeira ativação: vincula a licença ao computador.
-    if not lic.machine_id:
-        lic.machine_id = machine_id
-        lic.activated_at = now_utc()
-    elif lic.machine_id != machine_id:
-        return json_result({
-            "ok": False,
-            "error": "machine_mismatch",
-            "message": "Esta licença já está vinculada a outro computador."
-        }, 409)
+    existing = find_machine(lic, machine_id)
 
-    lic.last_check_at = now_utc()
+    # Já está ativado neste PC: apenas atualiza o último acesso.
+    if existing:
+        existing.machine_name = machine_name
+        existing.last_check_at = now_utc()
+
+    else:
+        # Ainda há vaga.
+        if lic.machine_count >= lic.machine_limit:
+            return json_result({
+                "ok": False,
+                "error": "machine_limit_reached",
+                "machine_count": lic.machine_count,
+                "max_machines": lic.machine_limit,
+                "message": (
+                    f"Limite de {lic.machine_limit} computador(es) "
+                    "atingido."
+                ),
+            }, 409)
+
+        new_machine = LicenseMachine(
+            license_id=lic.id,
+            machine_id=machine_id,
+            machine_name=machine_name,
+            activated_at=now_utc(),
+            last_check_at=now_utc(),
+        )
+        db.session.add(new_machine)
+
+    # Mantém os campos antigos sincronizados com a primeira máquina.
+    first_machine = (
+        existing
+        if existing
+        else LicenseMachine.query.filter_by(
+            license_id=lic.id
+        ).first()
+    )
+
+    if first_machine:
+        lic.machine_id = first_machine.machine_id
+        lic.activated_at = first_machine.activated_at
+        lic.last_check_at = now_utc()
+
     db.session.commit()
 
     return json_result({
         "ok": True,
         "message": "Licença ativada com sucesso.",
-        "license": {
-            "key": lic.key,
-            "owner": lic.owner,
-            "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
-            "machine_bound": True,
-        }
+        "license": license_payload(lic),
     })
 
 
@@ -308,6 +613,7 @@ def api_validate():
     data = request.get_json(silent=True) or {}
     key = normalize_key(data.get("key"))
     machine_id = (data.get("machine_id") or "").strip()
+    machine_name = get_machine_name(data)
 
     if not key or not machine_id:
         return json_result({
@@ -316,70 +622,110 @@ def api_validate():
         }, 400)
 
     lic = License.query.filter_by(key=key).first()
+
     if not lic:
-        return json_result({"ok": False, "error": "license_not_found"}, 404)
+        return json_result({
+            "ok": False,
+            "error": "license_not_found"
+        }, 404)
 
     if not lic.active:
-        return json_result({"ok": False, "error": "license_blocked"}, 403)
+        return json_result({
+            "ok": False,
+            "error": "license_blocked"
+        }, 403)
 
     if lic.is_expired():
         return json_result({
             "ok": False,
             "error": "license_expired",
-            "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
+            "expires_at": (
+                lic.expires_at.isoformat()
+                if lic.expires_at else None
+            ),
         }, 403)
 
-    if not lic.machine_id:
+    machine = find_machine(lic, machine_id)
+
+    if not machine:
         return json_result({
             "ok": False,
-            "error": "license_not_activated"
+            "error": "machine_mismatch",
+            "message": (
+                "Este computador não está vinculado a esta licença."
+            ),
         }, 409)
 
-    if lic.machine_id != machine_id:
-        return json_result({
-            "ok": False,
-            "error": "machine_mismatch"
-        }, 409)
-
-    lic.last_check_at = now_utc()
+    machine.machine_name = machine_name
+    machine.last_check_at = now_utc()
     db.session.commit()
 
     return json_result({
         "ok": True,
-        "license": {
-            "key": lic.key,
-            "owner": lic.owner,
-            "expires_at": lic.expires_at.isoformat() if lic.expires_at else None,
-        }
+        "license": license_payload(lic),
     })
 
 
 @app.route("/api/deactivate", methods=["POST"])
 def api_deactivate():
     """
-    Libera o computador somente quando o próprio EXE solicitar.
-    O cliente não consegue trocar o computador sem passar por aqui.
-    O administrador também pode usar "Resetar computador" no painel.
+    Remove somente o computador que está executando o EXE.
+    Em uma licença de vários computadores, isso libera apenas uma vaga.
     """
     data = request.get_json(silent=True) or {}
     key = normalize_key(data.get("key"))
     machine_id = (data.get("machine_id") or "").strip()
 
     if not key or not machine_id:
-        return json_result({"ok": False, "error": "missing_key_or_machine_id"}, 400)
+        return json_result({
+            "ok": False,
+            "error": "missing_key_or_machine_id"
+        }, 400)
 
     lic = License.query.filter_by(key=key).first()
+
     if not lic:
-        return json_result({"ok": False, "error": "license_not_found"}, 404)
+        return json_result({
+            "ok": False,
+            "error": "license_not_found"
+        }, 404)
 
-    if lic.machine_id and lic.machine_id != machine_id:
-        return json_result({"ok": False, "error": "machine_mismatch"}, 409)
+    machine = find_machine(lic, machine_id)
 
-    lic.machine_id = None
-    lic.activated_at = None
-    lic.last_check_at = None
+    if not machine:
+        return json_result({
+            "ok": False,
+            "error": "machine_mismatch"
+        }, 409)
+
+    db.session.delete(machine)
+
+    # Sincroniza campos antigos.
+    db.session.flush()
+
+    remaining = (
+        LicenseMachine.query
+        .filter_by(license_id=lic.id)
+        .order_by(LicenseMachine.id.asc())
+        .first()
+    )
+
+    if remaining:
+        lic.machine_id = remaining.machine_id
+        lic.activated_at = remaining.activated_at
+        lic.last_check_at = remaining.last_check_at
+    else:
+        lic.machine_id = None
+        lic.activated_at = None
+        lic.last_check_at = None
+
     db.session.commit()
-    return json_result({"ok": True})
+
+    return json_result({
+        "ok": True,
+        "message": "Computador removido da licença.",
+        "license": license_payload(lic),
+    })
 
 
 # ============================================================
