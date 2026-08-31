@@ -489,6 +489,36 @@ def renew_license(lic_id):
     return redirect(url_for("dashboard"))
 
 
+@app.route("/set-expiration/<int:lic_id>", methods=["POST"])
+@admin_required
+def set_expiration(lic_id):
+    """Define uma nova validade a partir de agora, sem somar ao vencimento atual.
+
+    Ex.: informar 1 dia faz a licença vencer exatamente 1 dia a partir deste momento.
+    A chave, os computadores vinculados e os demais dados permanecem os mesmos.
+    """
+    lic = db.get_or_404(License, lic_id)
+    raw_days = request.form.get("days", "").strip()
+
+    try:
+        days = int(raw_days)
+        if days <= 0:
+            raise ValueError
+    except ValueError:
+        flash("Quantidade de dias para definir a validade inválida.", "danger")
+        return redirect(url_for("dashboard"))
+
+    lic.expires_at = now_utc() + timedelta(days=days)
+    lic.active = True
+    db.session.commit()
+
+    flash(
+        f"Validade definida para {days} dia(s), mantendo a mesma chave.",
+        "success"
+    )
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/delete/<int:lic_id>", methods=["POST"])
 @admin_required
 def delete_license(lic_id):
