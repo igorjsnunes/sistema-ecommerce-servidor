@@ -162,13 +162,22 @@ def now_utc():
 
 
 def normalize_key(value):
-    return (
-        (value or "")
-        .strip()
-        .upper()
-        .replace(" ", "")
-        .replace("-", "")
+    """
+    Converte a chave para o mesmo formato usado no banco:
+    XXXX-XXXX-XXXX-XXXX.
+
+    O problema do backup era que a API removia os hífens antes de
+    consultar o banco, enquanto as chaves são salvas com hífens.
+    """
+    raw = "".join(
+        ch for ch in str(value or "").strip().upper()
+        if ch.isalnum()
     )
+
+    if len(raw) == 16:
+        return "-".join(raw[i:i + 4] for i in range(0, 16, 4))
+
+    return raw
 
 
 def generate_license_key():
