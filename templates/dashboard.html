@@ -1,338 +1,84 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sistema E-commerce — Licenças</title>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f4f6f8;
-            color: #111827;
-        }
-        .topbar {
-            background: #20252b;
-            color: white;
-            padding: 18px 7%;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 22px;
-        }
-        .logout {
-            color: white;
-            text-decoration: none;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            padding: 7px 13px;
-            font-size: 14px;
-        }
-        .container {
-            width: 84%;
-            max-width: 1500px;
-            margin: 28px auto;
-        }
-        .flash {
-            padding: 16px 18px;
-            border-radius: 7px;
-            margin-bottom: 18px;
-            border: 1px solid #b7dfca;
-            background: #dff3e8;
-            color: #17633b;
-        }
-        .flash.danger {
-            border-color: #f1b8b8;
-            background: #fde7e7;
-            color: #8a1c1c;
-        }
-        .card {
-            background: white;
-            border: 1px solid #d9dde2;
-            border-radius: 9px;
-            padding: 18px;
-            margin-bottom: 24px;
-            box-shadow: 0 1px 2px rgba(0,0,0,.03);
-        }
-        h2 {
-            margin: 0 0 18px;
-            font-size: 24px;
-        }
-        .create-grid {
-            display: grid;
-            grid-template-columns: 1.2fr 1.2fr .8fr .9fr 1fr;
-            gap: 10px;
-        }
-        input {
-            width: 100%;
-            border: 1px solid #d7dce2;
-            border-radius: 6px;
-            padding: 11px 13px;
-            font-size: 16px;
-            outline: none;
-        }
-        input:focus {
-            border-color: #1d8f5a;
-        }
-        button {
-            border: 0;
-            border-radius: 6px;
-            padding: 10px 14px;
-            font-size: 15px;
-            cursor: pointer;
-        }
-        .green { background: #198754; color: white; }
-        .yellow { background: #ffc107; color: #111; }
-        .blue { background: #12b9d8; color: #fff; }
-        .red { background: #dc3545; color: white; }
-        .gray { background: #6b7280; color: white; }
-        .badge {
-            display: inline-block;
-            padding: 5px 9px;
-            border-radius: 7px;
-            font-size: 13px;
-            font-weight: bold;
-        }
-        .active { background: #1f9d62; color: white; }
-        .blocked { background: #6b7280; color: white; }
-        .expired { background: #dc3545; color: white; }
-        .linked { background: #1677ff; color: white; }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            text-align: left;
-            padding: 14px 10px;
-            border-bottom: 1px solid #e5e7eb;
-            vertical-align: top;
-        }
-        th { font-size: 16px; }
-        .key {
-            color: #e83e8c;
-            font-family: Consolas, monospace;
-            white-space: nowrap;
-        }
-        .muted {
-            color: #6b7280;
-            font-size: 13px;
-            margin-top: 4px;
-        }
-        .machines {
-            min-width: 260px;
-        }
-        .machine {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding: 7px 0;
-            border-bottom: 1px dashed #e5e7eb;
-        }
-        .machine:last-child { border-bottom: 0; }
-        .machine-name {
-            font-weight: 600;
-            font-size: 14px;
-        }
-        .machine-id {
-            color: #6b7280;
-            font-size: 11px;
-            max-width: 190px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .mini-form {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .mini-form input {
-            width: 70px;
-            padding: 7px;
-            font-size: 14px;
-        }
-        .actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 7px;
-        }
-        .count {
-            font-weight: bold;
-            font-size: 16px;
-        }
-        @media (max-width: 1000px) {
-            .create-grid { grid-template-columns: 1fr 1fr; }
-            .container { width: 96%; }
-            .card { overflow-x: auto; }
-            table { min-width: 1000px; }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema E-commerce — Licenças</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#111827}
+.topbar{background:#20252b;color:white;padding:18px 7%;display:flex;align-items:center;justify-content:space-between;font-size:22px}
+.logout{color:white;text-decoration:none;border:1px solid #d1d5db;border-radius:6px;padding:7px 13px;font-size:14px}
+.container{width:84%;max-width:1500px;margin:28px auto}.flash{padding:16px 18px;border-radius:7px;margin-bottom:18px;border:1px solid #b7dfca;background:#dff3e8;color:#17633b}
+.flash.danger{border-color:#f1b8b8;background:#fde7e7;color:#8a1c1c}.card{background:white;border:1px solid #d9dde2;border-radius:9px;padding:18px;margin-bottom:24px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+h2{margin:0 0 18px;font-size:24px}.create-grid{display:grid;grid-template-columns:1.2fr 1.2fr .8fr .9fr 1fr;gap:10px}
+input{width:100%;border:1px solid #d7dce2;border-radius:6px;padding:11px 13px;font-size:16px;outline:none}input:focus{border-color:#1d8f5a}
+button{border:0;border-radius:6px;padding:10px 14px;font-size:15px;cursor:pointer}.green{background:#198754;color:white}.yellow{background:#ffc107;color:#111}
+.blue{background:#12b9d8;color:#fff}.red{background:#dc3545;color:white}.gray{background:#6b7280;color:white}.purple{background:#6f42c1;color:white}
+.badge{display:inline-block;padding:5px 9px;border-radius:7px;font-size:13px;font-weight:bold}.active{background:#1f9d62;color:white}.blocked{background:#6b7280;color:white}.expired{background:#dc3545;color:white}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}th{font-size:16px}
+.key{color:#e83e8c;font-family:Consolas,monospace;white-space:nowrap}.muted{color:#6b7280;font-size:13px;margin-top:4px}.machines{min-width:260px}
+.machine{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px dashed #e5e7eb}.machine:last-child{border-bottom:0}
+.machine-name{font-weight:600;font-size:14px}.machine-id{color:#6b7280;font-size:11px;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini-form{display:inline-flex;align-items:center;gap:6px}.mini-form input{width:70px;padding:7px;font-size:14px}.actions{display:flex;flex-wrap:wrap;gap:7px}.count{font-weight:bold;font-size:16px}
+.renew-form{display:flex;align-items:center;gap:6px;margin-bottom:7px}.renew-form input{width:90px;padding:8px;font-size:14px}
+@media(max-width:1000px){.create-grid{grid-template-columns:1fr 1fr}.container{width:96%}.card{overflow-x:auto}table{min-width:1150px}}
+</style>
 </head>
 <body>
-
-<div class="topbar">
-    <div>Sistema E-commerce — Licenças</div>
-    <a class="logout" href="{{ url_for('logout') }}">Sair</a>
-</div>
-
+<div class="topbar"><div>Sistema E-commerce — Licenças</div><a class="logout" href="{{ url_for('logout') }}">Sair</a></div>
 <div class="container">
+{% with messages=get_flashed_messages(with_categories=true) %}
+{% for category,message in messages %}<div class="flash {{ 'danger' if category == 'danger' else '' }}">{{ message }}</div>{% endfor %}
+{% endwith %}
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% for category, message in messages %}
-            <div class="flash {{ 'danger' if category == 'danger' else '' }}">
-                {{ message }}
-            </div>
-        {% endfor %}
-    {% endwith %}
-
-    <div class="card">
-        <h2>Nova licença</h2>
-
-        <form method="post" action="{{ url_for('create_license') }}">
-            <div class="create-grid">
-                <input name="owner" placeholder="Cliente">
-                <input name="email" placeholder="E-mail">
-                <input name="days" type="number" min="1" placeholder="Dias (vazio = vitalícia)">
-                <input name="max_machines" type="number" min="1" value="1" placeholder="Computadores">
-                <input name="notes" placeholder="Observação">
-            </div>
-
-            <div style="margin-top:10px; display:flex; justify-content:flex-end;">
-                <button class="green" type="submit">Gerar licença</button>
-            </div>
-        </form>
-    </div>
-
-    <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <h2 style="margin:0;">Licenças</h2>
-            <span class="badge blocked">{{ licenses|length }} licença(s)</span>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Cliente</th>
-                    <th>Chave</th>
-                    <th>Validade</th>
-                    <th>Status</th>
-                    <th>Computadores</th>
-                    <th>Limite</th>
-                    <th>Ações</th>
-                </tr>
-            </thead>
-
-            <tbody>
-            {% for lic in licenses %}
-                <tr>
-                    <td>
-                        <strong>{{ lic.owner or 'Sem cliente' }}</strong>
-                        {% if lic.email %}
-                            <div class="muted">{{ lic.email }}</div>
-                        {% endif %}
-                        {% if lic.notes %}
-                            <div class="muted">{{ lic.notes }}</div>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        <span class="key">{{ lic.key }}</span>
-                    </td>
-
-                    <td>
-                        {% if lic.expires_at %}
-                            {{ lic.expires_at.strftime('%d/%m/%Y %H:%M UTC') }}
-                        {% else %}
-                            Vitalícia
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        {% if lic.is_expired() %}
-                            <span class="badge expired">Vencida</span>
-                        {% elif lic.active %}
-                            <span class="badge active">Ativa</span>
-                        {% else %}
-                            <span class="badge blocked">Bloqueada</span>
-                        {% endif %}
-                    </td>
-
-                    <td class="machines">
-                        <div class="count">
-                            {{ lic.machine_count }} / {{ lic.machine_limit }}
-                        </div>
-
-                        {% if lic.machines %}
-                            {% for machine in lic.machines %}
-                                <div class="machine">
-                                    <div>
-                                        <div class="machine-name">
-                                            {{ machine.machine_name or 'Computador' }}
-                                        </div>
-                                        <div class="machine-id" title="{{ machine.machine_id }}">
-                                            {{ machine.machine_id }}
-                                        </div>
-                                    </div>
-
-                                    <form method="post"
-                                          action="{{ url_for('reset_machine', lic_id=lic.id, machine_row_id=machine.id) }}"
-                                          onsubmit="return confirm('Remover este computador da licença?');">
-                                        <button class="blue" type="submit" title="Liberar esta vaga">Remover</button>
-                                    </form>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="muted">Nenhum computador vinculado.</div>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        <form class="mini-form" method="post"
-                              action="{{ url_for('update_limit', lic_id=lic.id) }}">
-                            <input name="max_machines"
-                                   type="number"
-                                   min="{{ lic.machine_count if lic.machine_count > 0 else 1 }}"
-                                   value="{{ lic.machine_limit }}">
-                            <button class="gray" type="submit">Salvar</button>
-                        </form>
-                    </td>
-
-                    <td>
-                        <div class="actions">
-                            <form method="post"
-                                  action="{{ url_for('toggle_license', lic_id=lic.id) }}">
-                                <button class="yellow" type="submit">
-                                    {{ 'Bloquear' if lic.active else 'Ativar' }}
-                                </button>
-                            </form>
-
-                            {% if lic.machine_count > 0 %}
-                                <form method="post"
-                                      action="{{ url_for('reset_all_machines', lic_id=lic.id) }}"
-                                      onsubmit="return confirm('Desvincular TODOS os computadores desta licença?');">
-                                    <button class="blue" type="submit">Resetar todos</button>
-                                </form>
-                            {% endif %}
-
-                            <form method="post"
-                                  action="{{ url_for('delete_license', lic_id=lic.id) }}"
-                                  onsubmit="return confirm('Excluir esta licença definitivamente?');">
-                                <button class="red" type="submit">Excluir</button>
-                            </form>
-                        </div>
-                    </td>
-                </tr>
-            {% else %}
-                <tr>
-                    <td colspan="7">Nenhuma licença cadastrada.</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-    </div>
+<div class="card">
+<h2>Nova licença</h2>
+<form method="post" action="{{ url_for('create_license') }}">
+<div class="create-grid">
+<input name="owner" placeholder="Cliente"><input name="email" placeholder="E-mail">
+<input name="days" type="number" min="1" placeholder="Dias (vazio = vitalícia)">
+<input name="max_machines" type="number" min="1" value="1" placeholder="Computadores">
+<input name="notes" placeholder="Observação">
+</div>
+<div style="margin-top:10px;display:flex;justify-content:flex-end"><button class="green" type="submit">Gerar licença</button></div>
+</form>
 </div>
 
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="margin:0">Licenças</h2><span class="badge blocked">{{ licenses|length }} licença(s)</span></div>
+<table>
+<thead><tr><th>Cliente</th><th>Chave</th><th>Validade</th><th>Status</th><th>Computadores</th><th>Limite</th><th>Ações</th></tr></thead>
+<tbody>
+{% for lic in licenses %}
+<tr>
+<td><strong>{{ lic.owner or 'Sem cliente' }}</strong>{% if lic.email %}<div class="muted">{{ lic.email }}</div>{% endif %}{% if lic.notes %}<div class="muted">{{ lic.notes }}</div>{% endif %}</td>
+<td><span class="key">{{ lic.key }}</span></td>
+<td>{% if lic.expires_at %}{{ lic.expires_at.strftime('%d/%m/%Y %H:%M UTC') }}{% else %}Vitalícia{% endif %}</td>
+<td>{% if lic.is_expired() %}<span class="badge expired">Vencida</span>{% elif lic.active %}<span class="badge active">Ativa</span>{% else %}<span class="badge blocked">Bloqueada</span>{% endif %}</td>
+<td class="machines">
+<div class="count">{{ lic.machine_count }} / {{ lic.machine_limit }}</div>
+{% if lic.machines %}
+{% for machine in lic.machines %}
+<div class="machine"><div><div class="machine-name">{{ machine.machine_name or 'Computador' }}</div><div class="machine-id" title="{{ machine.machine_id }}">{{ machine.machine_id }}</div></div>
+<form method="post" action="{{ url_for('reset_machine',lic_id=lic.id,machine_row_id=machine.id) }}" onsubmit="return confirm('Remover este computador da licença?')"><button class="blue" type="submit">Remover</button></form></div>
+{% endfor %}
+{% else %}<div class="muted">Nenhum computador vinculado.</div>{% endif %}
+</td>
+<td><form class="mini-form" method="post" action="{{ url_for('update_limit',lic_id=lic.id) }}"><input name="max_machines" type="number" min="{{ lic.machine_count if lic.machine_count > 0 else 1 }}" value="{{ lic.machine_limit }}"><button class="gray" type="submit">Salvar</button></form></td>
+<td>
+<form class="renew-form" method="post" action="{{ url_for('renew_license',lic_id=lic.id) }}" onsubmit="return confirm('Renovar esta licença mantendo a mesma chave?')">
+<input name="days" type="number" min="1" value="365" title="Quantidade de dias"><button class="purple" type="submit">Renovar</button>
+</form>
+<div class="actions">
+<form method="post" action="{{ url_for('toggle_license',lic_id=lic.id) }}"><button class="yellow" type="submit">{{ 'Bloquear' if lic.active else 'Ativar' }}</button></form>
+{% if lic.machine_count > 0 %}<form method="post" action="{{ url_for('reset_all_machines',lic_id=lic.id) }}" onsubmit="return confirm('Desvincular TODOS os computadores desta licença?')"><button class="blue" type="submit">Resetar todos</button></form>{% endif %}
+<form method="post" action="{{ url_for('delete_license',lic_id=lic.id) }}" onsubmit="return confirm('Excluir esta licença definitivamente?')"><button class="red" type="submit">Excluir</button></form>
+</div>
+</td>
+</tr>
+{% else %}<tr><td colspan="7">Nenhuma licença cadastrada.</td></tr>{% endfor %}
+</tbody></table>
+</div>
+</div>
 </body>
 </html>
