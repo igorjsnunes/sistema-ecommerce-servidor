@@ -66,8 +66,11 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 10p
 </td>
 <td><form class="mini-form" method="post" action="{{ url_for('update_limit',lic_id=lic.id) }}"><input name="max_machines" type="number" min="{{ lic.machine_count if lic.machine_count > 0 else 1 }}" value="{{ lic.machine_limit }}"><button class="gray" type="submit">Salvar</button></form></td>
 <td>
-<form class="renew-form" method="post" action="{{ url_for('renew_license',lic_id=lic.id) }}" onsubmit="return confirm('Renovar esta licença mantendo a mesma chave?')">
-<input name="days" type="number" min="1" value="365" title="Quantidade de dias"><button class="purple" type="submit">Renovar</button>
+<form class="renew-form" method="post" action="{{ url_for('renew_license',lic_id=lic.id) }}" onsubmit="return confirm('Adicionar estes dias ao vencimento atual, mantendo a mesma chave?')">
+<input name="days" type="number" min="1" value="365" title="Dias para acrescentar"><button class="purple" type="submit">Renovar +</button>
+</form>
+<form class="renew-form" method="post" action="{{ url_for('set_expiration',lic_id=lic.id) }}" onsubmit="return confirm('Definir a validade a partir de AGORA? Isso substituirá o vencimento atual.')">
+<input name="days" type="number" min="1" value="1" title="Dias de validade a partir de agora"><button class="gray" type="submit">Definir</button>
 </form>
 <div class="actions">
 <form method="post" action="{{ url_for('toggle_license',lic_id=lic.id) }}"><button class="yellow" type="submit">{{ 'Bloquear' if lic.active else 'Ativar' }}</button></form>
