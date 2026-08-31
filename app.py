@@ -446,6 +446,40 @@ def reset_all_machines(lic_id):
     return redirect(url_for("dashboard"))
 
 
+@app.route("/renew/<int:lic_id>", methods=["POST"])
+@admin_required
+def renew_license(lic_id):
+    lic = db.get_or_404(License, lic_id)
+    raw_days = request.form.get("days", "").strip()
+
+    try:
+        days = int(raw_days)
+        if days <= 0:
+            raise ValueError
+    except ValueError:
+        flash("Quantidade de dias para renovação inválida.", "danger")
+        return redirect(url_for("dashboard"))
+
+    now = now_utc()
+
+    # Se ainda está válida, acrescenta os dias ao vencimento atual.
+    # Se já venceu, começa a contar a partir de agora.
+    if lic.expires_at and lic.expires_at > now:
+        lic.expires_at = lic.expires_at + timedelta(days=days)
+    else:
+        lic.expires_at = now + timedelta(days=days)
+
+    lic.active = True
+    db.session.commit()
+
+    flash(
+        f"Licença renovada por {days} dia(s). "
+        f"A chave {lic.key} foi mantida.",
+        "success"
+    )
+    return redirect(url_for("dashboard"))
+
+
 @app.route("/delete/<int:lic_id>", methods=["POST"])
 @admin_required
 def delete_license(lic_id):
