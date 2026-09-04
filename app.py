@@ -57,6 +57,7 @@ class License(db.Model):
     key = db.Column(db.String(64), unique=True, nullable=False, index=True)
     owner = db.Column(db.String(160), nullable=True)
     email = db.Column(db.String(160), nullable=True)
+    phone = db.Column(db.String(40), nullable=True)
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -223,6 +224,15 @@ def ensure_database_schema():
     inspector = inspect(db.engine)
     columns = {c["name"] for c in inspector.get_columns("licenses")}
 
+    if "phone" not in columns:
+        with db.engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE licenses "
+                    "ADD COLUMN phone VARCHAR(40)"
+                )
+            )
+
     if "max_machines" not in columns:
         with db.engine.begin() as conn:
             conn.execute(
@@ -311,8 +321,27 @@ def logout():
 @app.route("/dashboard")
 @admin_required
 def dashboard():
-    licenses = License.query.order_by(License.created_at.desc()).all()
-    return render_template("dashboard.html", licenses=licenses)
+    search = request.args.get("search", "").strip()
+
+    query = License.query
+
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                License.owner.ilike(term),
+                License.email.ilike(term),
+                License.phone.ilike(term),
+                License.key.ilike(term),
+            )
+        )
+
+    licenses = query.order_by(License.created_at.desc()).all()
+    return render_template(
+        "dashboard.html",
+        licenses=licenses,
+        search=search,
+    )
 
 
 @app.route("/create", methods=["POST"])
@@ -320,6 +349,7 @@ def dashboard():
 def create_license():
     owner = request.form.get("owner", "").strip()
     email = request.form.get("email", "").strip()
+    phone = request.form.get("phone", "").strip()
     days_raw = request.form.get("days", "").strip()
     notes = request.form.get("notes", "").strip()
     max_machines_raw = request.form.get("max_machines", "1").strip()
@@ -348,6 +378,7 @@ def create_license():
         key=unique_license_key(),
         owner=owner or None,
         email=email or None,
+        phone=phone or None,
         expires_at=expires_at,
         active=True,
         notes=notes or None,
@@ -363,6 +394,22 @@ def create_license():
         "success"
     )
     return redirect(url_for("dashboard"))
+
+
+@app.route("/edit/<int:lic_id>", methods=["POST"])
+@admin_required
+def edit_license(lic_id):
+    lic = db.get_or_404(License, lic_id)
+
+    lic.owner = request.form.get("owner", "").strip() or None
+    lic.email = request.form.get("email", "").strip() or None
+    lic.phone = request.form.get("phone", "").strip() or None
+    lic.notes = request.form.get("notes", "").strip() or None
+
+    db.session.commit()
+
+    flash("Dados da licença atualizados.", "success")
+    return redirect(url_for("dashboard", search=request.form.get("search", "").strip()))
 
 
 @app.route("/update-limit/<int:lic_id>", methods=["POST"])
