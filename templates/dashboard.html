@@ -10,7 +10,7 @@
 .logout{color:white;text-decoration:none;border:1px solid #d1d5db;border-radius:6px;padding:7px 13px;font-size:14px}
 .container{width:84%;max-width:1500px;margin:28px auto}.flash{padding:16px 18px;border-radius:7px;margin-bottom:18px;border:1px solid #b7dfca;background:#dff3e8;color:#17633b}
 .flash.danger{border-color:#f1b8b8;background:#fde7e7;color:#8a1c1c}.card{background:white;border:1px solid #d9dde2;border-radius:9px;padding:18px;margin-bottom:24px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
-h2{margin:0 0 18px;font-size:24px}.create-grid{display:grid;grid-template-columns:1.2fr 1.2fr .8fr .9fr 1fr;gap:10px}
+h2{margin:0 0 18px;font-size:24px}.create-grid{display:grid;grid-template-columns:1.1fr 1.1fr 1fr .8fr .9fr 1fr;gap:10px}
 input{width:100%;border:1px solid #d7dce2;border-radius:6px;padding:11px 13px;font-size:16px;outline:none}input:focus{border-color:#1d8f5a}
 button{border:0;border-radius:6px;padding:10px 14px;font-size:15px;cursor:pointer}.green{background:#198754;color:white}.yellow{background:#ffc107;color:#111}
 .blue{background:#12b9d8;color:#fff}.red{background:#dc3545;color:white}.gray{background:#6b7280;color:white}.purple{background:#6f42c1;color:white}
@@ -36,6 +36,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 10p
 <form method="post" action="{{ url_for('create_license') }}">
 <div class="create-grid">
 <input name="owner" placeholder="Cliente"><input name="email" placeholder="E-mail">
+<input name="phone" placeholder="Telefone / WhatsApp">
 <input name="days" type="number" min="1" placeholder="Dias (vazio = vitalícia)">
 <input name="max_machines" type="number" min="1" value="1" placeholder="Computadores">
 <input name="notes" placeholder="Observação">
@@ -46,12 +47,33 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 10p
 
 <div class="card">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="margin:0">Licenças</h2><span class="badge blocked">{{ licenses|length }} licença(s)</span></div>
+<form method="get" action="{{ url_for('dashboard') }}" style="display:flex;gap:8px;margin-bottom:16px">
+<input name="search" value="{{ search }}" placeholder="Pesquisar por cliente, e-mail, telefone ou chave">
+<button class="green" type="submit">Pesquisar</button>
+{% if search %}<a href="{{ url_for('dashboard') }}" class="gray" style="text-decoration:none;display:inline-flex;align-items:center">Limpar</a>{% endif %}
+</form>
 <table>
 <thead><tr><th>Cliente</th><th>Chave</th><th>Validade</th><th>Status</th><th>Computadores</th><th>Limite</th><th>Ações</th></tr></thead>
 <tbody>
 {% for lic in licenses %}
 <tr>
-<td><strong>{{ lic.owner or 'Sem cliente' }}</strong>{% if lic.email %}<div class="muted">{{ lic.email }}</div>{% endif %}{% if lic.notes %}<div class="muted">{{ lic.notes }}</div>{% endif %}</td>
+<td>
+<strong>{{ lic.owner or 'Sem cliente' }}</strong>
+{% if lic.email %}<div class="muted">{{ lic.email }}</div>{% endif %}
+{% if lic.phone %}<div class="muted">{{ lic.phone }}</div>{% endif %}
+{% if lic.notes %}<div class="muted">{{ lic.notes }}</div>{% endif %}
+<details style="margin-top:8px">
+<summary style="cursor:pointer;font-size:13px;color:#374151">Editar dados</summary>
+<form method="post" action="{{ url_for('edit_license',lic_id=lic.id) }}" style="margin-top:8px;display:grid;gap:6px">
+<input name="owner" value="{{ lic.owner or '' }}" placeholder="Cliente">
+<input name="email" value="{{ lic.email or '' }}" placeholder="E-mail">
+<input name="phone" value="{{ lic.phone or '' }}" placeholder="Telefone / WhatsApp">
+<input name="notes" value="{{ lic.notes or '' }}" placeholder="Observação">
+<input type="hidden" name="search" value="{{ search }}">
+<button class="green" type="submit">Salvar dados</button>
+</form>
+</details>
+</td>
 <td><span class="key">{{ lic.key }}</span></td>
 <td>{% if lic.expires_at %}{{ lic.expires_at.strftime('%d/%m/%Y %H:%M UTC') }}{% else %}Vitalícia{% endif %}</td>
 <td>{% if lic.is_expired() %}<span class="badge expired">Vencida</span>{% elif lic.active %}<span class="badge active">Ativa</span>{% else %}<span class="badge blocked">Bloqueada</span>{% endif %}</td>
